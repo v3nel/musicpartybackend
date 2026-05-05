@@ -1,0 +1,96 @@
+name: Discord Push Notification
+
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Send Discord Notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          # Récupérer les informations du commit
+          COMMIT_SHA=${{ github.sha }}
+          COMMIT_MESSAGE=$(git log -1 --format=%B)
+          COMMIT_AUTHOR=$(git log -1 --format=%an)
+          BRANCH=${{ github.ref_name }}
+          REPO=${{ github.repository }}
+          REPO_URL=${{ github.server_url }}/${{ github.repository }}
+          COMMITS_COUNT=$(git rev-list --count ${{ github.event.before }}..${{ github.sha }} 2>/dev/null || echo "1")
+          
+          # Récupérer tous les auteurs des commits de ce push
+          if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            AUTHORS=$(git log ${{ github.event.before }}..${{ github.sha }} --format=%an | sort -u | sed 's/^/• /')
+          else
+            AUTHORS=$(git log -1 --format=%an | sed 's/^/• /')
+          fi
+          
+          # Nettoyer le message du commit (première ligne)
+          FIRST_LINE=$(echo "$COMMIT_MESSAGE" | head -n 1)
+          
+          # Créer le payload JSON pour Discord
+          PAYLOAD=$(cat <<EOF
+          {
+            "embeds": [
+              {
+                "title": "📤 Nouveau Push sur $BRANCH",
+                "description": "$FIRST_LINE",
+                "color": 3447003,
+                "fields": [
+                  {
+                    "name": "🌿 Branche",
+                    "value": "$BRANCH",
+                    "inline": true
+                  },
+                  {
+                    "name": "📊 Commits",
+                    "value": "$COMMITS_COUNT",
+                    "inline": true
+                  },
+                  {
+                    "name": "👥 Auteurs",
+                    "value": "$AUTHORS",
+                    "inline": false
+                  },
+                  {
+                    "name": "🔗 SHA",
+                    "value": "\`${COMMIT_SHA:0:7}\`",
+                    "inline": true
+                  }
+                ],
+                "footer": {
+                  "text": "$REPO"
+                },
+                "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+              }
+            ],
+            "components": [
+              {
+                "type": 1,
+                "components": [
+                  {
+                    "type": 2,
+                    "label": "Lien",
+                    "url": "$REPO_URL",
+                    "style": 5
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )
+          
+          # Envoyer au webhook Discord
+          curl -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
