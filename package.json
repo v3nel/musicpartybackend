@@ -4,8 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "bun run db:dev && bun --watch src/index.ts",
+    "db:migrate": "bunx prisma migrate deploy",
+    "db:dev": "bun scripts/dbDev.ts",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && bun run db:dev",
+    "start": "bun run db:migrate && bun src/index.ts",
     "lint": "bunx eslint ."
   },
   "dependencies": {
