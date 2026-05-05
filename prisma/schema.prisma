@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SessionStatus {
+  Spotify_Pending
+  Ready
+  Active
+  Paused
+  Closed
+}
+
+model Session {
+  id Int @id @default(autoincrement())
+  code String @unique
+  guests Guest[]
+  queue QueueEntry[]
+  status SessionStatus
+  spotifyUserId String?
+  spotifyDisplayName String?
+  spotifyAccessTokenEncrypted String?
+  spotifyRefreshTokenEncrypted String?
+  spotifyTokenExpiresAt DateTime @default(dbgenerated("now() + interval '1 hour'"))
+  settings Json
+  created_at DateTime @default(now())
+  started_at DateTime?
+  closed_at DateTime?
+}
+
+model Guest {
+  id Int @id @default(autoincrement())
+  sessionId Int
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  queueEntries QueueEntry[]
+  displayName String
+  tokenHash String
+  joinedAt DateTime @default(now())
+  lastSeenAt DateTime?
+  leftAt DateTime?
+}
+
+enum QueueEntryStatus {
+  Pending
+  Queued
+  Rejected
+  Failed
+}
+
+model QueueEntry {
+  id Int @id @default(autoincrement())
+  sessionId Int
+  Session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  guestId Int
+  Guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  fromSpotifyPlaylist Boolean
+  trackUri String
+  spotifyTrackId String
+  title String
+  artists String[]
+  albumImageUrl String
+  durationMs Int
+  status QueueEntryStatus
+  requestedAt DateTime @default(now())
+  queuedAt DateTime?
+  failureReason String?
+}
