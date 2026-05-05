@@ -5,7 +5,7 @@
 
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "../src/services/prisma/generated"
 }
 
 datasource db {
@@ -43,7 +43,7 @@ model Guest {
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   queueEntries QueueEntry[]
   displayName String
-  tokenHash String
+  tokenHash String @unique
   joinedAt DateTime @default(now())
   lastSeenAt DateTime?
   leftAt DateTime?
@@ -62,14 +62,14 @@ model QueueEntry {
   Session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   guestId Int
   Guest Guest @relation(fields: [guestId], references: [id], onDelete: Cascade)
-  fromSpotifyPlaylist Boolean
+  fromSpotifyPlaylist Boolean @default(false)
   trackUri String
   spotifyTrackId String
   title String
   artists String[]
   albumImageUrl String
   durationMs Int
-  status QueueEntryStatus
+  status QueueEntryStatus @default(Pending)
   requestedAt DateTime @default(now())
   queuedAt DateTime?
   failureReason String?
