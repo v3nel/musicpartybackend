@@ -1,0 +1,83 @@
+import { beforeEach, describe, expect, it, mock } from "bun:test";
+
+const prismaMock = {
+	session: {
+		findUnique: mock(async () => null),
+		create: mock(async () => ({
+			id: 1,
+		})),
+	},
+};
+
+mock.module("../db/prisma.ts", () => ({
+	default: prismaMock,
+}));
+
+const { createSession } = await import("./create");
+
+describe("createSession", () => {
+	beforeEach(() => {
+		prismaMock.session.findUnique.mockReset();
+		prismaMock.session.findUnique.mockResolvedValue(null);
+		prismaMock.session.create.mockReset();
+		prismaMock.session.create.mockResolvedValue({ id: 1 });
+	});
+
+	it("throws when code is missing", async () => {
+		const payload = {
+			code: "",
+			settings: {
+				moderationEnabled: false,
+				allowDuplicates: true,
+				maxTracksPerGuests: 3,
+				cooldownSeconds: 10,
+			},
+		};
+		await expect(createSession(payload)).rejects.toThrow(
+			"A 6-digit code is required to create a session.",
+		);
+		expect(prismaMock.session.findUnique).not.toHaveBeenCalled();
+	});
+
+	it("throws when code is already used", async () => {
+		prismaMock.session.findUnique.mockResolvedValueOnce({ id: 5 });
+		const payload = {
+			code: "123456",
+			settings: {
+				moderationEnabled: false,
+				allowDuplicates: true,
+				maxTracksPerGuests: 3,
+				cooldownSeconds: 10,
+			},
+		};
+		await expect(createSession(payload)).rejects.toThrow(
+			"Session with this code already exists. Please change for an other code.",
+		);
+	});
+
+	it("creates a session when code is available", async () => {
+		const payload = {
+			code: "123456",
+			settings: {
+				moderationEnabled: true,
+				allowDuplicates: false,
+				maxTracksPerGuests: 5,
+				cooldownSeconds: 30,
+			},
+		};
+
+		const expected = { id: 7, ...payload };
+		prismaMock.session.create.mockResolvedValueOnce(expected);
+		await expect(createSession(payload)).resolves.toEqual(expected);
+		expect(prismaMock.session.findUnique).toHaveBeenCalledWith({
+			where: { code: "123456" },
+		});
+		expect(prismaMock.session.create).toHaveBeenCalledWith({
+			data: {
+				code: "123456",
+				status: "Spotify_Pending",
+				settings: payload.settings,
+			},
+		});
+	});
+});
