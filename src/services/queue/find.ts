@@ -13,3 +13,10 @@ export async function listQueueBySession(session_id: number) {
     })
     return queue
 }
+
+export async function findQueueEntryById(queueEntryId: number) {
+    const queueEntry = await prisma.queueEntry.findUnique({
+        where: { id: Number(queueEntryId) }
+    })
+    return queueEntry
+}
