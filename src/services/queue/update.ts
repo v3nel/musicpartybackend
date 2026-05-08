@@ -7,7 +7,7 @@ export async function markQueueEntryQueued(queueEntryId: number) {
         throw new Error("QueueEntry with that id was not found")
     }
     const update = await prisma.queueEntry.update({
-        where: { id: Number(queueEntry) },
+        where: { id: Number(queueEntryId) },
         data: { status: "Queued" }
     })
     return update
