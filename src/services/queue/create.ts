@@ -1,4 +1,4 @@
-import { createQueueEntryType } from "../../types/queueEntry/createQueueEntry";
+import { createQueueEntryType } from "../../types/services/queueEntry/createQueueEntry";
 import prisma from "../db/prisma";
 
 export async function createQueueEntry(data: createQueueEntryType) {
