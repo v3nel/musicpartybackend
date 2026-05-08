@@ -1,4 +1,4 @@
-import { createSessionType } from "../../types/session/createSession";
+import { createSessionType } from "../../types/services/session/createSession";
 import { isCodeAvailable } from "./find";
 import prisma from "../db/prisma";
 
