@@ -65,46 +65,33 @@ describe("updateSessionSpotifyTokens", () => {
 			updateSessionSpotifyTokens(2, {
 				access_token: "access",
 				refresh_token: "refresh",
-				expires_at: 123,
 			}),
 		).rejects.toThrow("Session with that id was not found");
 		expect(prismaMock.session.update).not.toHaveBeenCalled();
 	});
 
-	it("converts expires_at seconds to milliseconds", async () => {
+	it("sets expires_at to one hour from now", async () => {
 		prismaMock.session.findUnique.mockResolvedValueOnce({ id: 2 });
 		const expected = { id: 2 };
 		prismaMock.session.update.mockResolvedValueOnce(expected);
-
-		const expiresAtSeconds = 1_700_000_000;
+		const now = 1_700_000_000_000;
+		const nowSpy = jest.spyOn(Date, "now").mockReturnValue(now);
 		await expect(
 			updateSessionSpotifyTokens(2, {
 				access_token: "access",
 				refresh_token: "refresh",
-				expires_at: expiresAtSeconds,
 			}),
 		).resolves.toEqual(expected);
+		nowSpy.mockRestore();
 
 		expect(prismaMock.session.update).toHaveBeenCalledWith({
 			where: { id: 2 },
 			data: {
 				spotifyAccessTokenEncrypted: "access",
 				spotifyRefreshTokenEncrypted: "refresh",
-				spotifyTokenExpiresAt: new Date(expiresAtSeconds * 1000),
+				spotifyTokenExpiresAt: now + 60 * 60 * 1000,
 			},
 		});
-	});
-
-	it("throws when expires_at is invalid", async () => {
-		prismaMock.session.findUnique.mockResolvedValueOnce({ id: 9 });
-		await expect(
-			updateSessionSpotifyTokens(9, {
-				access_token: "access",
-				refresh_token: "refresh",
-				expires_at: Number.NaN,
-			}),
-		).rejects.toThrow("expires_at must be a valid timestamp");
-		expect(prismaMock.session.update).not.toHaveBeenCalled();
 	});
 });
 
