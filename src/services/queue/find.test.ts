@@ -41,3 +41,20 @@ describe("listQueueBySession", () => {
 		});
 	});
 });
+
+describe("findQueueEntryById", () => {
+	beforeEach(() => {
+		prismaMock.queueEntry.findUnique.mockReset();
+	});
+
+	it("returns queue entry when it exists", async () => {
+		const expected = { id: 9 };
+		prismaMock.queueEntry.findUnique.mockResolvedValueOnce(expected);
+		await expect(findQueueEntryById(9)).resolves.toEqual(expected);
+	});
+
+	it("returns null when queue entry is missing", async () => {
+		prismaMock.queueEntry.findUnique.mockResolvedValueOnce(null);
+		await expect(findQueueEntryById(42)).resolves.toBeNull();
+	});
+});
