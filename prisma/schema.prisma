@@ -30,7 +30,7 @@ model Session {
   spotifyDisplayName String?
   spotifyAccessTokenEncrypted String?
   spotifyRefreshTokenEncrypted String?
-  spotifyTokenExpiresAt DateTime?
+  spotifyTokenExpiresAt Int?
   settings Json?
   created_at DateTime @default(now())
   started_at DateTime?
