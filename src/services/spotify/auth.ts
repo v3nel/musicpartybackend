@@ -1,7 +1,9 @@
 import { parseSpotifyResponse } from "./parseApi"
 import { CodetoTokenSpotifyResponseBody } from "../../types/services/spotify/codeToTokenResponse"
+import { Session } from "../prisma/generated/client"
+import { decryptSpotifyToken, secureSpotifyToken } from "./secureToken"
+import { updateSessionSpotifyTokens } from "../session/update"
 
-// Placeholder for Spotify service orchestration helpers.
 export async function buildSpotifyAuthURL(sessionId: number) {
     if (!process.env.SPOTIFY_CLIENT_ID || typeof process.env.SPOTIFY_CLIENT_ID !== 'string' || !process.env.SPOTIFY_SECRET_ID || typeof process.env.SPOTIFY_SECRET_ID !== 'string' || !process.env.SPOTIFY_REDIRECT_URI || typeof process.env.SPOTIFY_REDIRECT_URI !== 'string' || !process.env.SPOTIFY_SCOPES || typeof process.env.SPOTIFY_SCOPES !== 'string') {
         throw new Error("Missing env variables for spotify authentication")
@@ -91,5 +93,42 @@ export async function exchangeCodeforToken(code: string) {
         return response
     } catch(err) {
         throw new Error("An error occurred while communicating with Spotify API")
+    }
+}
+
+export async function refreshTokenIfNeeded(session: Session) {
+    const {spotifyAccessTokenEncrypted, spotifyRefreshTokenEncrypted, spotifyTokenExpiresAt } = session
+    const clientId = process.env.SPOTIFY_CLIENT_ID
+    if(!spotifyRefreshTokenEncrypted || typeof spotifyRefreshTokenEncrypted !== 'string' || !spotifyAccessTokenEncrypted || typeof spotifyAccessTokenEncrypted !== 'string' || !spotifyTokenExpiresAt || typeof spotifyTokenExpiresAt !== 'number' || !clientId || typeof clientId !== 'string') {
+        throw new Error("An error occured while retrieving spotify tokens")
+    }
+    var refreshToken = await decryptSpotifyToken(spotifyRefreshTokenEncrypted)
+    var accessToken = await decryptSpotifyToken(spotifyAccessTokenEncrypted)
+    if (spotifyTokenExpiresAt <= Date.now()) {
+       const url = new URL("https://accounts.spotify.com/api/token")
+       try {
+            const request = await fetch(url, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/x-www-urlencoded'
+                },
+                body: JSON.stringify({
+                    grant_type: 'refresh_token',
+                    refresh_token: refreshToken,
+                    client_id: clientId
+                })
+            })
+            const response = await parseSpotifyResponse<CodetoTokenSpotifyResponseBody>(request)
+            const encryptedRefreshToken = await secureSpotifyToken(response.refresh_token)
+            const encryptedAccessToken = await secureSpotifyToken(response.access_token)
+            await updateSessionSpotifyTokens(session.id, {
+                access_token: encryptedAccessToken, refresh_token: encryptedRefreshToken
+            })
+            return { access_token: response.access_token, refresh_token: response.refresh_token, expires_at: Date.now() + 60 * 60 * 1000}
+       } catch(err) {
+            throw new Error("An error occured while communicating with spotify API")
+       }
+    } else {
+        return { access_token: accessToken, refresh_token: refreshToken, expires_at: spotifyTokenExpiresAt}
     }
 }
