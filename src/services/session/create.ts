@@ -14,8 +14,7 @@ export async function createSession(data: createSessionType) {
     const create = await prisma.session.create({
         data: {
             code: code,
-            status: "Spotify_Pending",
-            settings: data.settings
+            status: "Spotify_Pending"
         }
     })
     return create
