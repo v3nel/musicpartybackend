@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import argon2 from "argon2";
 
-export async function secureSpotifyToken(token: string): Promise<string> {
+export async function secureSpotifyToken(token: string) {
 	const secret = process.env.SPOTIFY_ENCRYPTION_PHRASE;
 	if (!secret) {
 		throw new Error("Missing SPOTIFY_ENCRYPTION_PHRASE");
