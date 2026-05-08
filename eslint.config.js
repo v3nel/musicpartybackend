@@ -32,7 +32,7 @@ export default tseslint.config(
     files: ['**/*.test.ts'],
     languageOptions: {
       globals: {
-        ...globals.bun,
+        ...globals.jest,
       },
     },
   },
