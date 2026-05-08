@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
-import {
+
+jest.unstable_mockModule("../session/update", () => ({
+	updateSessionSpotifyTokens: jest.fn(),
+}));
+
+const {
 	buildSpotifyAuthURL,
 	decryptOAuthState,
 	exchangeCodeforToken,
-} from "./auth";
+} = await import("./auth");
 
 const originalEnv = {
 	SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
