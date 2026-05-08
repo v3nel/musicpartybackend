@@ -23,13 +23,12 @@ export async function updateSessionSpotifyTokens(session_id: number, tokens: upd
     if (!session) {
         throw new Error("Session with that id was not found")
     }
-    const expiresAtMs = normalizeExpiresAt(tokens.expires_at)
     const update = await prisma.session.update({
         where: { id: Number(session_id) },
         data: { 
             spotifyAccessTokenEncrypted: tokens.access_token,
             spotifyRefreshTokenEncrypted: tokens.refresh_token,
-            spotifyTokenExpiresAt: new Date(expiresAtMs)
+            spotifyTokenExpiresAt: Date.now() + 60 * 60 * 1000
         }
     })
     return update
@@ -47,11 +46,4 @@ export async function updateSessionSettings(session_id: number, settings: sessio
         data: { settings: settings }
     })
     return update
-}
-
-function normalizeExpiresAt(expiresAt: number): number {
-    if (!Number.isFinite(expiresAt)) {
-        throw new Error("expires_at must be a valid timestamp")
-    }
-    return expiresAt < 1_000_000_000_000 ? expiresAt * 1000 : expiresAt
 }
