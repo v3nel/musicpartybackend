@@ -1,7 +1,6 @@
 import { Router, Request, Response } from "express";
 import { isCodeAvailable } from "../services/session/find";
 import { createSession } from "../services/session/create";
-import { createSessionType } from "../types/services/session/createSession";
 const sessionRouter = Router();
 
 /**
@@ -50,9 +49,6 @@ sessionRouter.post("/", async (req: Request, res: Response) => {
             error: "No settings were submitted"
         });
     }
-
-    
-    
 })
 
 sessionRouter.post("/reserve-code", async (req: Request, res: Response) => {
