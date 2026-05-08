@@ -2,3 +2,4 @@
 node_modules
 prisma/migrations
 src/services/prisma/generated
+coverage
