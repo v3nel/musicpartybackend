@@ -1,4 +1,4 @@
-import { SpotifyApiError } from "../../types/spotify/apiError";
+import { SpotifyApiError } from "../../types/services/spotify/apiError";
 
 export function isSpotifyApiError(payload: unknown): payload is SpotifyApiError {
 	if (!payload || typeof payload !== `object` || !(`error` in payload)) {
