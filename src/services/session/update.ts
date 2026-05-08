@@ -1,8 +1,8 @@
 import prisma from "../db/prisma";
 import { SessionStatus } from "../prisma/generated/enums";
 import { findSessionById } from "./find";
-import { updateSpotifyTokensType } from "../../types/session/updateSpotifyTokens";
-import { sessionSettingsType } from "../../types/session/sessionSettings";
+import { updateSpotifyTokensType } from "../../types/services/session/updateSpotifyTokens";
+import { sessionSettingsType } from "../../types/services/session/sessionSettings";
 
 export async function updateSessionStatus(session_id: number, status: SessionStatus) {
     const session = await findSessionById(session_id)
