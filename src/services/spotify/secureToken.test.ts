@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "@jest/globals";
 import { decryptSpotifyToken, secureSpotifyToken } from "./secureToken";
 
 describe("spotify token crypto helpers", () => {

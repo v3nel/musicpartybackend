@@ -1,18 +1,18 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const prismaMock = {
 	session: {
-		findUnique: mock(async () => null),
+		findUnique: jest.fn(async () => null),
 	},
 	guest: {
-		findUnique: mock(async () => null),
+		findUnique: jest.fn(async () => null),
 	},
 	queueEntry: {
-		create: mock(async () => ({ id: 1 })),
+		create: jest.fn(async () => ({ id: 1 })),
 	},
 };
 
-mock.module("../db/prisma.ts", () => ({
+jest.unstable_mockModule("../db/prisma.ts", () => ({
 	default: prismaMock,
 }));
 

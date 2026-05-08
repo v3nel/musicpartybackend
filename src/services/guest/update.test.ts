@@ -1,13 +1,13 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const prismaMock = {
 	guest: {
-		findUnique: mock(async () => null),
-		update: mock(async () => ({ id: 1 })),
+		findUnique: jest.fn(async () => null),
+		update: jest.fn(async () => ({ id: 1 })),
 	},
 };
 
-mock.module("../db/prisma.ts", () => ({
+jest.unstable_mockModule("../db/prisma.ts", () => ({
 	default: prismaMock,
 }));
 
