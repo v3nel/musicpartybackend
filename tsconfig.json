@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "types": ["bun", "node"],
+    "types": ["jest", "node"],
     "rootDir": ".",
     "outDir": "dist"
   },
