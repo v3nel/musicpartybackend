@@ -65,6 +65,7 @@ model QueueEntry {
   fromSpotifyPlaylist Boolean @default(false)
   trackUri String
   spotifyTrackId String
+  spotifyProfile Json?
   title String
   artists String[]
   albumImageUrl String
