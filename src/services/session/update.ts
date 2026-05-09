@@ -3,6 +3,7 @@ import { SessionStatus } from "../prisma/generated/enums";
 import { findSessionById } from "./find";
 import { updateSpotifyTokensType } from "../../types/services/session/updateSpotifyTokens";
 import { sessionSettingsType } from "../../types/services/session/sessionSettings";
+import { normalizeSessionSettings } from "./settings";
 
 export async function updateSessionStatus(session_id: number, status: SessionStatus) {
     const session = await findSessionById(session_id)
@@ -28,7 +29,7 @@ export async function updateSessionSpotifyTokens(session_id: number, tokens: upd
         data: { 
             spotifyAccessTokenEncrypted: tokens.access_token,
             spotifyRefreshTokenEncrypted: tokens.refresh_token,
-            spotifyTokenExpiresAt: Date.now() + 60 * 60 * 1000
+            spotifyTokenExpiresAt: tokens.expires_at ?? Date.now() + 60 * 60 * 1000
         }
     })
     return update
@@ -43,7 +44,7 @@ export async function updateSessionSettings(session_id: number, settings: sessio
     }
     const update = await prisma.session.update({
         where: { id: Number(session_id) },
-        data: { settings: settings }
+            data: { settings: normalizeSessionSettings(settings) }
     })
     return update
 }
