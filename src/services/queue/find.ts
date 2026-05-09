@@ -9,7 +9,7 @@ export async function listQueueBySession(session_id: number) {
     }
     const queue = await prisma.queueEntry.findMany({
         where: { sessionId: Number(session_id) },
-        orderBy: { queuedAt: "desc" }
+        orderBy: { requestedAt: "asc" }
     })
     return queue
 }

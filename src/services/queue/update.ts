@@ -8,7 +8,7 @@ export async function markQueueEntryQueued(queueEntryId: number) {
     }
     const update = await prisma.queueEntry.update({
         where: { id: Number(queueEntryId) },
-        data: { status: "Queued" }
+        data: { status: "Queued", queuedAt: new Date() }
     })
     return update
 }
@@ -35,4 +35,14 @@ export async function markQueueEntryFailed(queueEntryId: number, failureReason: 
         data: { status: "Failed" , failureReason: failureReason }
     })
     return update
+}
+
+export async function removeQueueEntry(queueEntryId: number) {
+    const queueEntry = await findQueueEntryById(queueEntryId)
+    if (queueEntry === null) {
+        throw new Error("QueueEntry with that id was not found")
+    }
+    return prisma.queueEntry.delete({
+        where: { id: Number(queueEntryId) }
+    })
 }
