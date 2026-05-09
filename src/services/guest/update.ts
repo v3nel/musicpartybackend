@@ -31,3 +31,21 @@ export async function markGuestAsLeft(guest_id: number) {
     })
     return mark
 }
+
+export async function banGuest(guest_id: number) {
+    const guest = await prisma.guest.findUnique({
+        where: { id: Number(guest_id) }
+    })
+    if (!guest) {
+        throw new Error("Guest with that id was not found")
+    }
+    await prisma.queueEntry.deleteMany({
+        where: { guestId: Number(guest_id) }
+    })
+    return prisma.guest.update({
+        where: { id: Number(guest_id) },
+        data: {
+            bannedAt: new Date()
+        }
+    })
+}
