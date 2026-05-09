@@ -127,7 +127,14 @@ describe("updateSessionSettings", () => {
 		await expect(updateSessionSettings(4, settings)).resolves.toEqual(expected);
 		expect(prismaMock.session.update).toHaveBeenCalledWith({
 			where: { id: 4 },
-			data: { settings },
+			data: {
+				settings: {
+					autoApprove: false,
+					allowDuplicates: false,
+					maxTracksPerGuest: 2,
+					cooldownSeconds: 15,
+				},
+			},
 		});
 	});
 });

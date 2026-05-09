@@ -66,7 +66,9 @@ describe("createSession", () => {
 
 		const expected = { id: 7, ...payload };
 		prismaMock.session.create.mockResolvedValueOnce(expected);
-		await expect(createSession(payload)).resolves.toEqual(expected);
+		const result = await createSession(payload);
+		expect(result.session).toEqual(expected);
+		expect(result.hostToken).toEqual(expect.any(String));
 		expect(prismaMock.session.findUnique).toHaveBeenCalledWith({
 			where: { code: "123456" },
 		});
@@ -74,7 +76,15 @@ describe("createSession", () => {
 			data: {
 				code: "123456",
 				status: "Spotify_Pending",
-				settings: payload.settings,
+				settings: {
+					autoApprove: false,
+					allowDuplicates: false,
+					maxTracksPerGuest: 5,
+					cooldownSeconds: 30,
+				},
+				hostTokenHash: expect.any(String),
+				hostTokenIssuedAt: expect.any(Date),
+				hostLastSeenAt: expect.any(Date),
 			},
 		});
 	});
