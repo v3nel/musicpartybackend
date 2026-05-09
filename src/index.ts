@@ -1,19 +1,14 @@
-import express from "express";
-import { registerRoutes } from "./routes/index.js";
-import swaggerUI from 'swagger-ui-express'
-import { swaggerSpec } from "./swagger.config.js"
+import http from "node:http";
+import { createApp } from "./app.js";
+import { handleWebSocketUpgrade } from "./services/realtime.js";
 
-const app = express();
-
-app.use(express.json());
-
-registerRoutes(app);
-
-if(process.env.NODE_ENV === "DEV"){
-  app.use("/docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec))
-}
+const app = createApp();
 
 const port = Number(process.env.PORT) || 3001;
-app.listen(port, () => {
+const server = http.createServer(app);
+server.on("upgrade", (req, socket) => {
+  void handleWebSocketUpgrade(req, socket as import("node:net").Socket);
+});
+server.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
 });
