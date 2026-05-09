@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 
+const updateSessionSpotifyTokensMock = jest.fn();
+
 jest.unstable_mockModule("../session/update", () => ({
-	updateSessionSpotifyTokens: jest.fn(),
+	updateSessionSpotifyTokens: updateSessionSpotifyTokensMock,
 }));
 
 const {
 	buildSpotifyAuthURL,
 	decryptOAuthState,
 	exchangeCodeforToken,
+	refreshTokenIfNeeded,
 } = await import("./auth");
+const { secureSpotifyToken } = await import("./secureToken");
 
 const originalEnv = {
 	SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
@@ -16,6 +20,7 @@ const originalEnv = {
 	SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI,
 	SPOTIFY_SCOPES: process.env.SPOTIFY_SCOPES,
 	SPOTIFY_STATE_ENCRYPTION_PHRASE: process.env.SPOTIFY_STATE_ENCRYPTION_PHRASE,
+	SPOTIFY_ENCRYPTION_PHRASE: process.env.SPOTIFY_ENCRYPTION_PHRASE,
 };
 
 const originalFetch = globalThis.fetch;
@@ -62,7 +67,7 @@ describe("buildSpotifyAuthURL", () => {
 
 	it("returns a URL with a decryptable state", async () => {
 		const url = await buildSpotifyAuthURL(42);
-		expect(url.origin).toBe("https://account.spotify.com");
+		expect(url.origin).toBe("https://accounts.spotify.com");
 		expect(url.pathname).toBe("/authorize");
 		expect(url.searchParams.get("client_id")).toBe("client-id");
 		expect(url.searchParams.get("response_type")).toBe("code");
@@ -77,6 +82,16 @@ describe("buildSpotifyAuthURL", () => {
 		const decrypted = await decryptOAuthState(state as string);
 		expect(decrypted.sessionId).toBe(42);
 		expect(typeof decrypted.nonce).toBe("string");
+	});
+
+	it("accepts a normal passphrase length for oauth state encryption", async () => {
+		process.env.SPOTIFY_STATE_ENCRYPTION_PHRASE = "short-secret";
+		const url = await buildSpotifyAuthURL(12);
+		const state = url.searchParams.get("state");
+		expect(state).toBeTruthy();
+		await expect(decryptOAuthState(state as string)).resolves.toMatchObject({
+			sessionId: 12,
+		});
 	});
 });
 
@@ -119,16 +134,10 @@ describe("exchangeCodeforToken", () => {
 		expect(String(calledUrl)).toBe("https://accounts.spotify.com/api/token");
 		expect(calledInit?.method).toBe("POST");
 		expect(calledInit?.headers).toEqual({
-			"Content-Type": "application/x-www-url-urlencoded",
+			"Content-Type": "application/x-www-form-urlencoded",
 			Authorization: "Basic " + Buffer.from("client-id:secret-id").toString("base64"),
 		});
-		expect(calledInit?.body).toBe(
-			JSON.stringify({
-				grant_type: "authorization_code",
-				code: "abc",
-				redirect_uri: "https://localhost/callback",
-			}),
-		);
+		expect(String(calledInit?.body)).toBe("grant_type=authorization_code&code=abc&redirect_uri=https%3A%2F%2Flocalhost%2Fcallback");
 	});
 
 	it("throws a friendly error when spotify rejects the request", async () => {
@@ -144,5 +153,72 @@ describe("exchangeCodeforToken", () => {
 		await expect(exchangeCodeforToken("abc")).rejects.toThrow(
 			"An error occurred while communicating with Spotify API",
 		);
+	});
+});
+
+describe("refreshTokenIfNeeded", () => {
+	beforeEach(() => {
+		process.env.SPOTIFY_CLIENT_ID = TEST_ENV.SPOTIFY_CLIENT_ID;
+		process.env.SPOTIFY_SECRET_ID = TEST_ENV.SPOTIFY_SECRET_ID;
+		process.env.SPOTIFY_ENCRYPTION_PHRASE = "spotify-token-secret";
+		updateSessionSpotifyTokensMock.mockReset();
+	});
+
+	afterEach(() => {
+		restoreEnv();
+		globalThis.fetch = originalFetch;
+	});
+
+	it("accepts Prisma BigInt token expiry values", async () => {
+		const accessToken = await secureSpotifyToken("access");
+		const refreshToken = await secureSpotifyToken("refresh");
+		const session = {
+			id: 7,
+			spotifyAccessTokenEncrypted: accessToken,
+			spotifyRefreshTokenEncrypted: refreshToken,
+			spotifyTokenExpiresAt: BigInt(Date.now() + 60_000),
+		};
+
+		await expect(refreshTokenIfNeeded(session as never)).resolves.toEqual({
+			access_token: "access",
+			refresh_token: "refresh",
+			expires_at: Number(session.spotifyTokenExpiresAt),
+		});
+	});
+
+	it("keeps the existing refresh token when Spotify refresh response omits one", async () => {
+		const accessToken = await secureSpotifyToken("old-access");
+		const refreshToken = await secureSpotifyToken("old-refresh");
+		const response = new Response(JSON.stringify({
+			access_token: "new-access",
+			token_type: "Bearer",
+			scope: "user-read-email",
+			expires_in: 3600,
+		}), {
+			headers: { "content-type": "application/json" },
+		});
+		const fetchMock = jest.fn(async () => response);
+		globalThis.fetch = fetchMock as typeof fetch;
+
+		const result = await refreshTokenIfNeeded({
+			id: 7,
+			spotifyAccessTokenEncrypted: accessToken,
+			spotifyRefreshTokenEncrypted: refreshToken,
+			spotifyTokenExpiresAt: BigInt(Date.now() - 1_000),
+		} as never);
+
+		expect(result.access_token).toBe("new-access");
+		expect(result.refresh_token).toBe("old-refresh");
+		expect(updateSessionSpotifyTokensMock).toHaveBeenCalledWith(7, expect.objectContaining({
+			access_token: expect.any(String),
+			refresh_token: expect.any(String),
+			expires_at: expect.any(Number),
+		}));
+		const [, init] = fetchMock.mock.calls[0];
+		expect(init?.headers).toEqual({
+			"Content-Type": "application/x-www-form-urlencoded",
+			Authorization: "Basic " + Buffer.from("client-id:secret-id").toString("base64"),
+		});
+		expect(String(init?.body)).toBe("grant_type=refresh_token&refresh_token=old-refresh");
 	});
 });

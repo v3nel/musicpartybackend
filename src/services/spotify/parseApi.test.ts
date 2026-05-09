@@ -23,6 +23,11 @@ describe("parseSpotifyResponse", () => {
 		});
 	});
 
+	it("returns null for spotify 204 no content responses", async () => {
+		const response = new Response(null, { status: 204 });
+		await expect(parseSpotifyResponse<null>(response)).resolves.toBeNull();
+	});
+
 	it("throws spotify message with status code", async () => {
 		const response = new Response(JSON.stringify({
 			error: { status: 403, message: "Forbidden" },
