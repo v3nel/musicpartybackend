@@ -39,13 +39,36 @@ export async function banGuest(guest_id: number) {
     if (!guest) {
         throw new Error("Guest with that id was not found")
     }
+    if (guest.isHost) {
+        throw new Error("Cannot ban the host")
+    }
     await prisma.queueEntry.deleteMany({
         where: { guestId: Number(guest_id) }
     })
     return prisma.guest.update({
         where: { id: Number(guest_id) },
         data: {
-            bannedAt: new Date()
+            bannedAt: new Date(),
+            isCoHost: false
         }
+    })
+}
+
+export async function setGuestCoHost(guest_id: number, isCoHost: boolean) {
+    const guest = await prisma.guest.findUnique({
+        where: { id: Number(guest_id) }
+    })
+    if (!guest) {
+        throw new Error("Guest with that id was not found")
+    }
+    if (guest.isHost) {
+        throw new Error("Cannot promote the host")
+    }
+    if (guest.bannedAt) {
+        throw new Error("Cannot promote a banned guest")
+    }
+    return prisma.guest.update({
+        where: { id: Number(guest_id) },
+        data: { isCoHost }
     })
 }

@@ -1,4 +1,5 @@
 import prisma from "../db/prisma";
+import { hashGuestToken } from "./token";
 
 export async function createGuest(session_id: number, displayName: string, tokenHash: string) {
     const session = await prisma.session.findUnique({
@@ -15,4 +16,18 @@ export async function createGuest(session_id: number, displayName: string, token
         }
     })
     return guest
+}
+
+export async function ensureHostShadowGuest(session_id: number, hostToken: string, displayName: string | null) {
+    const tokenHash = hashGuestToken(hostToken);
+    const existing = await prisma.guest.findUnique({ where: { tokenHash } });
+    if (existing) return existing;
+    return prisma.guest.create({
+        data: {
+            sessionId: session_id,
+            displayName: displayName ?? "Host",
+            tokenHash,
+            isHost: true,
+        },
+    });
 }

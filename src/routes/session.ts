@@ -1,14 +1,15 @@
 import express, { Request, Response } from "express";
 import { isCodeAvailable, findSessionByCode } from "../services/session/find";
 import { createSession } from "../services/session/create";
-import { getSessionForHostReconnect } from "../services/session/host";
+import { getSessionForHostReconnect, requireHostOrCoHost } from "../services/session/host";
 import { updateSessionSettings } from "../services/session/update";
 import { getSessionSnapshot } from "../services/session/snapshot";
 import { normalizeSessionSettings } from "../services/session/settings";
-import { createGuest } from "../services/guest/create";
+import { createGuest, ensureHostShadowGuest } from "../services/guest/create";
 import { createGuestToken } from "../services/guest/token";
 import { findGuestByToken } from "../services/guest/find";
-import { banGuest } from "../services/guest/update";
+import { banGuest, setGuestCoHost } from "../services/guest/update";
+import { verifyHostToken } from "../services/session/hostToken";
 import { createQueueEntry } from "../services/queue/create";
 import { listQueueBySession } from "../services/queue/find";
 import { validateQueueRequest } from "../services/queue/rules";
@@ -129,7 +130,15 @@ sessionRouter.post("/:code/host/reconnect", async (req: Request, res: Response) 
 		const session = await getSessionOr404(codeParam(req), res);
 		if (!session) return;
 		const host = await getSessionForHostReconnect(session.id, tokenFromRequest(req));
-		return res.status(200).json({ session: host });
+		return res.status(200).json({
+			session: {
+				id: host.id,
+				code: host.code,
+				status: host.status,
+				spotifyDisplayName: host.spotifyDisplayName,
+				settings: normalizeSessionSettings(host.settings),
+			},
+		});
 	} catch (err) {
 		const http = toHttpError(err);
 		return res.status(http.status).json({ code: http.status, error: http.message });
@@ -228,7 +237,7 @@ sessionRouter.patch("/:code/settings", async (req: Request, res: Response) => {
 	try {
 		const session = await getSessionOr404(codeParam(req), res);
 		if (!session) return;
-		await getSessionForHostReconnect(session.id, tokenFromRequest(req));
+		await requireHostOrCoHost(session.id, tokenFromRequest(req));
 		const updated = await updateSessionSettings(session.id, normalizeSessionSettings(req.body));
 		await broadcastSessionSnapshot(session.code, "settings.updated");
 		return res.status(200).json({ settings: normalizeSessionSettings(updated.settings) });
@@ -242,7 +251,7 @@ sessionRouter.post("/:code/queue/:entryId/:action", async (req: Request, res: Re
 	try {
 		const session = await getSessionOr404(codeParam(req), res);
 		if (!session) return;
-		await getSessionForHostReconnect(session.id, tokenFromRequest(req));
+		await requireHostOrCoHost(session.id, tokenFromRequest(req));
 		const entryId = Number(req.params.entryId);
 		if (req.params.action === "approve") {
 			const entry = await markQueueEntryQueued(entryId);
@@ -266,8 +275,42 @@ sessionRouter.post("/:code/guests/:guestId/ban", async (req: Request, res: Respo
 	try {
 		const session = await getSessionOr404(codeParam(req), res);
 		if (!session) return;
-		await getSessionForHostReconnect(session.id, tokenFromRequest(req));
+		await requireHostOrCoHost(session.id, tokenFromRequest(req));
 		const guest = await banGuest(Number(req.params.guestId));
+		await broadcastSessionSnapshot(session.code, "guests.updated");
+		return res.status(200).json({ guest });
+	} catch (err) {
+		const http = toHttpError(err);
+		return res.status(http.status).json({ code: http.status, error: http.message });
+	}
+});
+
+sessionRouter.post("/:code/guests/:guestId/promote", async (req: Request, res: Response) => {
+	try {
+		const session = await getSessionOr404(codeParam(req), res);
+		if (!session) return;
+		await getSessionForHostReconnect(session.id, tokenFromRequest(req));
+		const guest = await setGuestCoHost(Number(req.params.guestId), true);
+		if (guest.sessionId !== session.id) {
+			return res.status(404).json({ code: 404, error: "Guest does not belong to this session" });
+		}
+		await broadcastSessionSnapshot(session.code, "guests.updated");
+		return res.status(200).json({ guest });
+	} catch (err) {
+		const http = toHttpError(err);
+		return res.status(http.status).json({ code: http.status, error: http.message });
+	}
+});
+
+sessionRouter.post("/:code/guests/:guestId/demote", async (req: Request, res: Response) => {
+	try {
+		const session = await getSessionOr404(codeParam(req), res);
+		if (!session) return;
+		await getSessionForHostReconnect(session.id, tokenFromRequest(req));
+		const guest = await setGuestCoHost(Number(req.params.guestId), false);
+		if (guest.sessionId !== session.id) {
+			return res.status(404).json({ code: 404, error: "Guest does not belong to this session" });
+		}
 		await broadcastSessionSnapshot(session.code, "guests.updated");
 		return res.status(200).json({ guest });
 	} catch (err) {

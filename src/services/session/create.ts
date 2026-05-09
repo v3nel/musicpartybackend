@@ -2,6 +2,7 @@ import { createSessionType } from "../../types/services/session/createSession";
 import { isCodeAvailable } from "./find";
 import prisma from "../db/prisma";
 import { createHostToken } from "./hostToken";
+import { hashGuestToken } from "../guest/token";
 import { normalizeSessionSettings } from "./settings";
 
 export async function createSession(data: createSessionType) {
@@ -22,6 +23,13 @@ export async function createSession(data: createSessionType) {
             hostTokenHash: hostToken.tokenHash,
             hostTokenIssuedAt: hostToken.issuedAt,
             hostLastSeenAt: hostToken.issuedAt,
+            guests: {
+                create: {
+                    displayName: "Host",
+                    tokenHash: hashGuestToken(hostToken.token),
+                    isHost: true,
+                },
+            },
         }
     })
     return { session: create, hostToken: hostToken.token }

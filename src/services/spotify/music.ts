@@ -45,25 +45,25 @@ export async function addTrackToSpotifyQueue(trackUri: string, session: Session)
 
 export async function getPlaybackState(session: Session) {
     const { access_token } = await refreshTokenIfNeeded(session)
-    const url = new URL("https://api.spotify.com/v1/me/player")
-    try {
-        const request = await fetch(url, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${access_token}`
-            }
-        })
-        const response = await parseSpotifyResponse<spotifyPlaybackStateType | null>(request)
-        if (response) {
-            return response
+    const playerUrl = new URL("https://api.spotify.com/v1/me/player")
+    const currentlyPlayingUrl = new URL("https://api.spotify.com/v1/me/player/currently-playing")
+    const requestPlaybackState = (url: URL) => fetch(url, {
+        method: "GET",
+        headers: {
+            "Authorization": `Bearer ${access_token}`
         }
-        const currentlyPlayingUrl = new URL("https://api.spotify.com/v1/me/player/currently-playing")
-        const currentlyPlayingRequest = await fetch(currentlyPlayingUrl, {
-            method: "GET",
-            headers: {
-                "Authorization": `Bearer ${access_token}`
+    })
+    try {
+        try {
+            const request = await requestPlaybackState(playerUrl)
+            const response = await parseSpotifyResponse<spotifyPlaybackStateType | null>(request)
+            if (response) {
+                return response
             }
-        })
+        } catch {
+            // Fall back to the lower-scope endpoint when /me/player is unavailable.
+        }
+        const currentlyPlayingRequest = await requestPlaybackState(currentlyPlayingUrl)
         return parseSpotifyResponse<spotifyPlaybackStateType | null>(currentlyPlayingRequest)
     } catch(err) {
         throw new Error('An error occured while trying to retrieve host playback state', { cause: err })

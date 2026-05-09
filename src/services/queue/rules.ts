@@ -47,7 +47,7 @@ export async function validateQueueRequest(sessionId: number, guestId: number, t
 		}
 	}
 
-	if (settings.maxTracksPerGuest > 0) {
+	if (!guest.isHost && settings.maxTracksPerGuest > 0) {
 		const count = await prisma.queueEntry.count({
 			where: {
 				sessionId: session.id,
@@ -60,7 +60,7 @@ export async function validateQueueRequest(sessionId: number, guestId: number, t
 		}
 	}
 
-	if (settings.cooldownSeconds > 0) {
+	if (!guest.isHost && settings.cooldownSeconds > 0) {
 		const latest = await prisma.queueEntry.findFirst({
 			where: { sessionId: session.id, guestId: guest.id },
 			orderBy: { requestedAt: "desc" },

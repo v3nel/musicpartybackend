@@ -1,42 +1,28 @@
 import type { Socket } from "node:net";
+import type { IncomingMessage } from "node:http";
 import { URL } from "node:url";
-import crypto from "node:crypto";
+import { WebSocket, WebSocketServer } from "ws";
 import { getSessionSnapshot } from "./session/snapshot";
 import { findSessionByCode } from "./session/find";
 import { getSessionForHostReconnect } from "./session/host";
 import { findGuestByToken } from "./guest/find";
 
 type Client = {
-	socket: Socket;
+	socket: WebSocket;
 	code: string;
 };
 
+const wss = new WebSocketServer({ noServer: true });
 const clientsByCode = new Map<string, Set<Client>>();
 const pollingByCode = new Map<string, ReturnType<typeof setInterval>>();
-
-function encodeFrame(payload: string) {
-	const data = Buffer.from(payload);
-	const headerLength = data.length < 126 ? 2 : data.length < 65536 ? 4 : 10;
-	const header = Buffer.alloc(headerLength);
-	header[0] = 0x81;
-	if (data.length < 126) {
-		header[1] = data.length;
-	} else if (data.length < 65536) {
-		header[1] = 126;
-		header.writeUInt16BE(data.length, 2);
-	} else {
-		header[1] = 127;
-		header.writeBigUInt64BE(BigInt(data.length), 2);
-	}
-	return Buffer.concat([header, data]);
-}
+const pollingInFlightByCode = new Set<string>();
 
 function send(client: Client, data: unknown) {
-	if (client.socket.destroyed) return;
-	client.socket.write(encodeFrame(JSON.stringify(data)));
+	if (client.socket.readyState !== WebSocket.OPEN) return;
+	client.socket.send(JSON.stringify(data));
 }
 
-function addClient(code: string, socket: Socket) {
+function addClient(code: string, socket: WebSocket) {
 	const client = { code, socket };
 	let set = clientsByCode.get(code);
 	if (!set) {
@@ -67,8 +53,13 @@ export async function broadcastSessionSnapshot(code: string, event = "session.sn
 function startSessionPolling(code: string) {
 	if (pollingByCode.has(code)) return;
 	const interval = setInterval(() => {
-		void broadcastSessionSnapshot(code, "playback.updated").catch(() => {
-		});
+		if (pollingInFlightByCode.has(code)) return;
+		pollingInFlightByCode.add(code);
+		void broadcastSessionSnapshot(code, "playback.updated")
+			.catch(() => {})
+			.finally(() => {
+				pollingInFlightByCode.delete(code);
+			});
 	}, 1000);
 	pollingByCode.set(code, interval);
 }
@@ -81,9 +72,10 @@ function stopSessionPollingIfIdle(code: string) {
 	if (!interval) return;
 	clearInterval(interval);
 	pollingByCode.delete(code);
+	pollingInFlightByCode.delete(code);
 }
 
-export async function handleWebSocketUpgrade(req: import("node:http").IncomingMessage, socket: Socket) {
+export async function handleWebSocketUpgrade(req: IncomingMessage, socket: Socket, head: Buffer) {
 	try {
 		const host = req.headers.host ?? "localhost";
 		const url = new URL(req.url ?? "", `http://${host}`);
@@ -110,26 +102,15 @@ export async function handleWebSocketUpgrade(req: import("node:http").IncomingMe
 			}
 		}
 
-		const key = req.headers["sec-websocket-key"];
-		if (!key || Array.isArray(key)) {
-			socket.destroy();
-			return;
-		}
-		const accept = crypto
-			.createHash("sha1")
-			.update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
-			.digest("base64");
-		socket.write([
-			"HTTP/1.1 101 Switching Protocols",
-			"Upgrade: websocket",
-			"Connection: Upgrade",
-			`Sec-WebSocket-Accept: ${accept}`,
-			"",
-			"",
-		].join("\r\n"));
-
-		const client = addClient(code, socket);
-		send(client, { event: "session.snapshot", payload: await getSessionSnapshot(code) });
+		wss.handleUpgrade(req, socket, head, async (ws) => {
+			const client = addClient(code, ws);
+			try {
+				const snapshot = await getSessionSnapshot(code);
+				send(client, { event: "session.snapshot", payload: snapshot });
+			} catch {
+				// Initial snapshot is best-effort; polling will retry.
+			}
+		});
 	} catch {
 		socket.destroy();
 	}

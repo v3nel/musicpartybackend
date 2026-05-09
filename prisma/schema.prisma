@@ -48,6 +48,8 @@ model Guest {
   queueEntries QueueEntry[]
   displayName String
   tokenHash String @unique
+  isCoHost Boolean @default(false)
+  isHost Boolean @default(false)
   joinedAt DateTime @default(now())
   lastSeenAt DateTime?
   leftAt DateTime?
