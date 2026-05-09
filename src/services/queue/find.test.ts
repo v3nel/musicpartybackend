@@ -37,7 +37,7 @@ describe("listQueueBySession", () => {
 		await expect(listQueueBySession(3)).resolves.toEqual(expected);
 		expect(prismaMock.queueEntry.findMany).toHaveBeenCalledWith({
 			where: { sessionId: 3 },
-			orderBy: { queuedAt: "desc" },
+			orderBy: { requestedAt: "asc" },
 		});
 	});
 });

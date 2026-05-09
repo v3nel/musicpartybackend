@@ -44,7 +44,7 @@ describe("markQueueEntryQueued", () => {
 		await expect(markQueueEntryQueued(5)).resolves.toEqual(expected);
 		expect(prismaMock.queueEntry.update).toHaveBeenCalledWith({
 			where: { id: 5 },
-			data: { status: "Queued" },
+			data: { status: "Queued", queuedAt: expect.any(Date) },
 		});
 	});
 });
