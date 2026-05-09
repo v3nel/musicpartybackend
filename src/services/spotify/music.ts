@@ -1,5 +1,6 @@
 import { spotifyPlaybackStateType } from "../../types/services/spotify/spotifyPlaybackState";
 import { spotifySearchResultsType } from "../../types/services/spotify/spotifySearchResults";
+import { spotifyTrackItemType } from "../../types/services/spotify/spotifyTrackItem";
 import { Session } from "../prisma/generated/client";
 import { refreshTokenIfNeeded } from "./auth";
 import { parseSpotifyResponse } from "./parseApi";
@@ -20,7 +21,7 @@ export async function searchTracks(search: string, session: Session) {
         const response = await parseSpotifyResponse<spotifySearchResultsType>(request)
         return response
     } catch(err) {
-        throw new Error("An error occured while communicating with spotify API")
+        throw new Error("An error occured while communicating with spotify API", { cause: err })
     }
 }
 
@@ -38,7 +39,7 @@ export async function addTrackToSpotifyQueue(trackUri: string, session: Session)
         const response = await parseSpotifyResponse<null>(request)
         return response
     } catch(err) {
-        throw new Error("An error occured while adding song to Spotify queue")
+        throw new Error("An error occured while adding song to Spotify queue", { cause: err })
     }
 }
 
@@ -52,11 +53,42 @@ export async function getPlaybackState(session: Session) {
                 "Authorization": `Bearer ${access_token}`
             }
         })
-        const response = await parseSpotifyResponse<spotifyPlaybackStateType>(request)
-        return response
+        const response = await parseSpotifyResponse<spotifyPlaybackStateType | null>(request)
+        if (response) {
+            return response
+        }
+        const currentlyPlayingUrl = new URL("https://api.spotify.com/v1/me/player/currently-playing")
+        const currentlyPlayingRequest = await fetch(currentlyPlayingUrl, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${access_token}`
+            }
+        })
+        return parseSpotifyResponse<spotifyPlaybackStateType | null>(currentlyPlayingRequest)
     } catch(err) {
-        throw new Error('An error occured while trying to retrieve host playback state')
+        throw new Error('An error occured while trying to retrieve host playback state', { cause: err })
     }
 }
 
-// TODO: Make a mapPlaybackState function to make it readable by the frontend
+export function mapPlaybackState(apiResponse: spotifyPlaybackStateType) {
+    const isPlaying = apiResponse.is_playing;
+    const progressMs = apiResponse.progress_ms;
+    const timestamp = Date.now()
+    if (!apiResponse.item) {
+        return { isPlaying, trackInfos: null, progressMs, timestamp }
+    }
+    const trackInfos = {
+        spotifyTrackId: apiResponse.item.id,
+        trackUri: apiResponse.item.uri,
+        title: apiResponse.item.name,
+        artists: apiResponse.item.artists.map(artist => artist.name),
+        cover: apiResponse.item.album.images[0],
+        durationMs: apiResponse.item.duration_ms
+    }
+    return { isPlaying, trackInfos, progressMs, timestamp}
+}
+
+export function mapSpotifyTrack(track: spotifyTrackItemType) {
+    return { title: track.name, artists: track.artists.map(artists => artists.name), cover: track.album.images[0] }
+}
+
