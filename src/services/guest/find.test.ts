@@ -31,7 +31,9 @@ describe("guest find service", () => {
 		prismaMock.guest.findUnique.mockResolvedValueOnce(expected);
 		await expect(findGuestByToken("abc")).resolves.toEqual(expected);
 		expect(prismaMock.guest.findUnique).toHaveBeenCalledWith({
-			where: { tokenHash: "abc" },
+			where: {
+				tokenHash: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+			},
 		});
 	});
 });
