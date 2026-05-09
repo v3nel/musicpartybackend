@@ -1,6 +1,8 @@
 export type sessionSettingsType = {
-    moderationEnabled: boolean,
-    allowDuplicates: boolean,
-    maxTracksPerGuests: number,
-    cooldownSeconds: number
+    autoApprove?: boolean,
+    moderationEnabled?: boolean,
+    allowDuplicates?: boolean,
+    maxTracksPerGuest?: number,
+    maxTracksPerGuests?: number,
+    cooldownSeconds?: number
 }

@@ -21,8 +21,8 @@ export type spotifyPlaybackStateType = {
         },
         uri: string
     },
-    timestamp: 0,
-    progress_ms: 0,
+    timestamp: number,
+    progress_ms: number,
     is_playing: boolean,
     item: spotifyTrackItemType,
     currently_playing_type: string,
