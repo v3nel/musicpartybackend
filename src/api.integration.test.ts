@@ -52,12 +52,14 @@ const mocks = {
 	findSessionByCode: jest.fn(),
 	createSession: jest.fn(),
 	getSessionForHostReconnect: jest.fn(),
+	requireHostOrCoHost: jest.fn(),
 	updateSessionSettings: jest.fn(),
 	getSessionSnapshot: jest.fn(),
 	createGuest: jest.fn(),
 	createGuestToken: jest.fn(),
 	findGuestByToken: jest.fn(),
 	banGuest: jest.fn(),
+	setGuestCoHost: jest.fn(),
 	createQueueEntry: jest.fn(),
 	listQueueBySession: jest.fn(),
 	validateQueueRequest: jest.fn(),
@@ -88,6 +90,7 @@ jest.unstable_mockModule("./services/session/create", () => ({
 
 jest.unstable_mockModule("./services/session/host", () => ({
 	getSessionForHostReconnect: mocks.getSessionForHostReconnect,
+	requireHostOrCoHost: mocks.requireHostOrCoHost,
 }));
 
 jest.unstable_mockModule("./services/session/update", () => ({
@@ -113,6 +116,7 @@ jest.unstable_mockModule("./services/guest/find", () => ({
 
 jest.unstable_mockModule("./services/guest/update", () => ({
 	banGuest: mocks.banGuest,
+	setGuestCoHost: mocks.setGuestCoHost,
 }));
 
 jest.unstable_mockModule("./services/queue/create", () => ({
@@ -201,12 +205,14 @@ describe("API routes integration", () => {
 		mocks.findSessionByCode.mockResolvedValue(session as never);
 		mocks.createSession.mockResolvedValue({ session, hostToken: "host-token" } as never);
 		mocks.getSessionForHostReconnect.mockResolvedValue(session as never);
+		mocks.requireHostOrCoHost.mockResolvedValue({ session, role: "host" } as never);
 		mocks.updateSessionSettings.mockResolvedValue({ ...session, settings: session.settings } as never);
 		mocks.getSessionSnapshot.mockResolvedValue(snapshot as never);
 		mocks.createGuest.mockResolvedValue(guest as never);
 		mocks.createGuestToken.mockReturnValue({ token: "guest-token", tokenHash: "guest-token-hash" } as never);
 		mocks.findGuestByToken.mockResolvedValue(guest as never);
 		mocks.banGuest.mockResolvedValue({ ...guest, bannedAt: new Date("2026-05-09T11:00:00.000Z") } as never);
+		mocks.setGuestCoHost.mockResolvedValue({ ...guest, isCoHost: true } as never);
 		mocks.validateQueueRequest.mockResolvedValue({ session, guest, settings: session.settings } as never);
 		mocks.createQueueEntry.mockResolvedValue(queueEntry as never);
 		mocks.listQueueBySession.mockResolvedValue([queueEntry] as never);
@@ -418,7 +424,7 @@ describe("API routes integration", () => {
 			body: JSON.stringify(nextSettings),
 		});
 		expect(response.status).toBe(200);
-		expect(mocks.getSessionForHostReconnect).toHaveBeenCalledWith(7, "host-token");
+		expect(mocks.requireHostOrCoHost).toHaveBeenCalledWith(7, "host-token");
 		expect(mocks.updateSessionSettings).toHaveBeenCalledWith(7, nextSettings);
 	});
 

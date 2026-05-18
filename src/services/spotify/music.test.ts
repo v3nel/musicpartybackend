@@ -126,7 +126,9 @@ describe("spotify music helpers", () => {
 	it("getPlaybackState throws a friendly error on failure", async () => {
 		const session = createSession();
 		refreshTokenIfNeededMock.mockResolvedValueOnce({ access_token: "token" });
-		parseSpotifyResponseMock.mockRejectedValueOnce(new Error("Spotify down"));
+		parseSpotifyResponseMock
+			.mockRejectedValueOnce(new Error("Spotify down"))
+			.mockRejectedValueOnce(new Error("Spotify down"));
 		const fetchMock = jest.fn(async () => new Response("{}"));
 		globalThis.fetch = fetchMock as typeof fetch;
 

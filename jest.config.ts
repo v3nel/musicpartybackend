@@ -4,6 +4,15 @@ const config: Config = {
 	preset: "ts-jest/presets/default-esm",
 	testEnvironment: "node",
 	extensionsToTreatAsEsm: [".ts"],
+	transform: {
+		"^.+\\.tsx?$": [
+			"ts-jest",
+			{
+				tsconfig: "tsconfig.json",
+				useESM: true,
+			},
+		],
+	},
 	moduleNameMapper: {
 		"^(\\.{1,2}/.*)\\.js$": "$1",
 	},
@@ -14,12 +23,6 @@ const config: Config = {
 	],
 	coverageDirectory: "coverage",
 	coverageReporters: ["text", "lcov"],
-	globals: {
-		"ts-jest": {
-			tsconfig: "tsconfig.json",
-			useESM: true,
-		},
-	},
 };
 
 export default config;

@@ -82,6 +82,13 @@ describe("createSession", () => {
 					maxTracksPerGuest: 5,
 					cooldownSeconds: 30,
 				},
+				guests: {
+					create: {
+						displayName: "Host",
+						tokenHash: expect.any(String),
+						isHost: true,
+					},
+				},
 				hostTokenHash: expect.any(String),
 				hostTokenIssuedAt: expect.any(Date),
 				hostLastSeenAt: expect.any(Date),

@@ -64,7 +64,8 @@ export async function getPlaybackState(session: Session) {
             // Fall back to the lower-scope endpoint when /me/player is unavailable.
         }
         const currentlyPlayingRequest = await requestPlaybackState(currentlyPlayingUrl)
-        return parseSpotifyResponse<spotifyPlaybackStateType | null>(currentlyPlayingRequest)
+        const response = await parseSpotifyResponse<spotifyPlaybackStateType | null>(currentlyPlayingRequest)
+        return response
     } catch(err) {
         throw new Error('An error occured while trying to retrieve host playback state', { cause: err })
     }
