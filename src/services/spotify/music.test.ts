@@ -12,7 +12,13 @@ jest.unstable_mockModule("./parseApi", () => ({
 	parseSpotifyResponse: parseSpotifyResponseMock,
 }));
 
-const { searchTracks, addTrackToSpotifyQueue, getPlaybackState } = await import("./music");
+const {
+	searchTracks,
+	addTrackToSpotifyQueue,
+	getPlaybackState,
+	mapPlaybackState,
+	mapSpotifyTrack,
+} = await import("./music");
 
 const originalFetch = globalThis.fetch;
 
@@ -135,5 +141,51 @@ describe("spotify music helpers", () => {
 		await expect(getPlaybackState(session)).rejects.toThrow(
 			"An error occured while trying to retrieve host playback state",
 		);
+	});
+
+	it("mapPlaybackState returns null track info when no item", () => {
+		const playback = mapPlaybackState({
+			is_playing: false,
+			progress_ms: 0,
+			item: null,
+		} as never);
+		expect(playback.trackInfos).toBeNull();
+		expect(playback.isPlaying).toBe(false);
+	});
+
+	it("mapPlaybackState maps track info", () => {
+		const playback = mapPlaybackState({
+			is_playing: true,
+			progress_ms: 5000,
+			item: {
+				id: "track-1",
+				uri: "spotify:track:track-1",
+				name: "Song",
+				artists: [{ name: "Artist" }],
+				album: { images: [{ url: "cover.jpg" }] },
+				duration_ms: 200000,
+			},
+		} as never);
+		expect(playback.trackInfos).toEqual({
+			spotifyTrackId: "track-1",
+			trackUri: "spotify:track:track-1",
+			title: "Song",
+			artists: ["Artist"],
+			cover: { url: "cover.jpg" },
+			durationMs: 200000,
+		});
+	});
+
+	it("mapSpotifyTrack maps summary fields", () => {
+		const mapped = mapSpotifyTrack({
+			name: "Song",
+			artists: [{ name: "Artist" }],
+			album: { images: [{ url: "cover.jpg" }] },
+		} as never);
+		expect(mapped).toEqual({
+			title: "Song",
+			artists: ["Artist"],
+			cover: { url: "cover.jpg" },
+		});
 	});
 });

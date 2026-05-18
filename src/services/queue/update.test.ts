@@ -20,6 +20,7 @@ const {
 	markQueueEntryQueued,
 	markQueueEntryRejected,
 	markQueueEntryFailed,
+	removeQueueEntry,
 } = await import("./update");
 
 describe("markQueueEntryQueued", () => {
@@ -99,6 +100,31 @@ describe("markQueueEntryFailed", () => {
 		expect(prismaMock.queueEntry.update).toHaveBeenCalledWith({
 			where: { id: 8 },
 			data: { status: "Failed", failureReason: "oops" },
+		});
+	});
+});
+
+describe("removeQueueEntry", () => {
+	beforeEach(() => {
+		findQueueEntryByIdMock.mockReset();
+		prismaMock.queueEntry.update.mockReset();
+		prismaMock.queueEntry.delete = jest.fn(async () => ({ id: 9 }));
+	});
+
+	it("throws when queue entry is missing", async () => {
+		findQueueEntryByIdMock.mockResolvedValueOnce(null);
+		await expect(removeQueueEntry(9)).rejects.toThrow(
+			"QueueEntry with that id was not found",
+		);
+		expect(prismaMock.queueEntry.delete).not.toHaveBeenCalled();
+	});
+
+	it("deletes queue entry", async () => {
+		findQueueEntryByIdMock.mockResolvedValueOnce({ id: 9 });
+		(prismaMock.queueEntry.delete as jest.Mock).mockResolvedValueOnce({ id: 9 });
+		await expect(removeQueueEntry(9)).resolves.toEqual({ id: 9 });
+		expect(prismaMock.queueEntry.delete).toHaveBeenCalledWith({
+			where: { id: 9 },
 		});
 	});
 });
